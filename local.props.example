@@ -1,0 +1,11 @@
+<Project>
+  <PropertyGroup>
+    <!-- The YARG_Data\Managed folder of the YARG install you build against and run. -->
+    <YargManagedDir>C:\path\to\YARG\installation\YARG_Data\Managed</YargManagedDir>
+
+    <!-- Optional: the YARG install folder. When set, the build copies the plugin DLL
+         into $(YargInstallDir)\BepInEx\plugins\YargSetlistBridge\ (BepInEx must already
+         be installed there). -->
+    <YargInstallDir></YargInstallDir>
+  </PropertyGroup>
+</Project>

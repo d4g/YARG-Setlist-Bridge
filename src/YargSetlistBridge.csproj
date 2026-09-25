@@ -1,0 +1,56 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    A BepInEx 5 plugin, loaded into YARG's own Mono runtime. It compiles against the
+    assemblies of an installed YARG rather than YARG's source: that is what the plugin
+    will actually meet at runtime, and it keeps this repo buildable without Unity.
+    None of those assemblies are copied to the output or committed; see local.props.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>YargSetlistBridge</AssemblyName>
+    <RootNamespace>YargSetlistBridge</RootNamespace>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <Version>0.1.1</Version>
+
+    <BepInExPluginGuid>dev.yalcybuild.setlistbridge</BepInExPluginGuid>
+    <BepInExPluginName>YARG Setlist Bridge</BepInExPluginName>
+
+    <RestoreAdditionalProjectSources>https://nuget.bepinex.dev/v3/index.json</RestoreAdditionalProjectSources>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <!-- Unity's assemblies were built against newer facade versions than the netstandard2.1
+         reference pack; at runtime Mono supplies its own, so the mismatch is only noise. -->
+    <MSBuildWarningsAsMessages>MSB3277</MSBuildWarningsAsMessages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BepInEx.Core" Version="5.4.21" PrivateAssets="all" />
+    <PackageReference Include="BepInEx.PluginInfoProps" Version="2.1.0" PrivateAssets="all" />
+  </ItemGroup>
+
+  <!-- YargManagedDir comes from local.props (or -p:YargManagedDir=...). -->
+  <Target Name="CheckYargManagedDir" BeforeTargets="ResolveAssemblyReferences">
+    <Error Condition="'$(YargManagedDir)' == '' Or !Exists('$(YargManagedDir)\Assembly-CSharp.dll')"
+           Text="YargManagedDir must point at an installed YARG's YARG_Data\Managed folder. Copy local.props.example to local.props and set it. Current value: '$(YargManagedDir)'" />
+  </Target>
+
+  <ItemGroup>
+    <Reference Include="Assembly-CSharp" HintPath="$(YargManagedDir)\Assembly-CSharp.dll" Private="false" />
+    <Reference Include="Assembly-CSharp-firstpass" HintPath="$(YargManagedDir)\Assembly-CSharp-firstpass.dll" Private="false" />
+    <Reference Include="YARG.Core.Package" HintPath="$(YargManagedDir)\YARG.Core.Package.dll" Private="false" />
+    <Reference Include="Newtonsoft.Json" HintPath="$(YargManagedDir)\Newtonsoft.Json.dll" Private="false" />
+    <Reference Include="UnityEngine" HintPath="$(YargManagedDir)\UnityEngine.dll" Private="false" />
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(YargManagedDir)\UnityEngine.CoreModule.dll" Private="false" />
+  </ItemGroup>
+
+  <Target Name="DeployToYarg" AfterTargets="Build" Condition="'$(YargInstallDir)' != ''">
+    <Error Condition="!Exists('$(YargInstallDir)\BepInEx')"
+           Text="YargInstallDir is set but has no BepInEx folder. Install BepInEx 5 into '$(YargInstallDir)' first, or clear YargInstallDir." />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(YargInstallDir)\BepInEx\plugins\YargSetlistBridge" />
+    <Message Importance="high" Text="Deployed $(TargetFileName) to $(YargInstallDir)\BepInEx\plugins\YargSetlistBridge" />
+  </Target>
+
+</Project>
