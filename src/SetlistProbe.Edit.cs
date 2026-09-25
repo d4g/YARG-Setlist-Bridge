@@ -16,11 +16,12 @@ namespace YargSetlistBridge
     /// - <c>Playlist.MoveSongUp/Down</c> save the playlist to disk even when it is the
     ///   ephemeral setlist, which would leave a stray <c>Setlist.*.json</c> among the user's
     ///   playlists. So the hash list is edited directly, never through those methods.
-    /// - <c>MusicLibraryMenu.SetNavigationScheme(true)</c> pops YARG's navigation stack, which
-    ///   is only safe when the library is the top menu. It is not called. The cost is that
-    ///   the host's button hints may say "play" instead of "start set" after a guest adds
-    ///   the first song, until the menu next refreshes; the buttons still do the right thing,
-    ///   because YARG checks the setlist's size when they are pressed.
+    /// - An on-screen library is redrawn with <c>RefreshAndReselect</c>, the call YARG makes
+    ///   after its own edits. Its <c>Refresh</c> also rebuilds the help bar, so the green
+    ///   button's label flips from "Play Song" to "Add to Setlist" as soon as a guest adds the
+    ///   first song, and it defers that while a popup or dialog is open. Never call
+    ///   <c>SetNavigationScheme(true)</c> directly instead: it pops the navigation stack
+    ///   unconditionally.
     /// - While difficulty select is open for a setlist, the list has already been copied
     ///   into the show and the library's copy may already be cleared. Editing either one
     ///   there could start a different show than the one on screen, so edits wait: <c>busy</c>.

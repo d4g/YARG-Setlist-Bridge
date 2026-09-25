@@ -132,9 +132,9 @@ line that isn't JSON gets `{"type":"error","code":"invalid"}`. Neither has an `i
 
 **Side effects in the game.** When a client adds a song, YARG shows a toast naming it,
 except during gameplay (setting `Game.ToastOnAdd`). If the music library is on screen, it
-redraws. The host's button hints may keep saying "play" instead of "start set" after a
-client adds the first song, until the library next refreshes. The buttons themselves work
-correctly, because YARG checks the setlist when they are pressed.
+redraws the way it does after the host's own edits, including the button hints, so the
+green button's label changes from "Play Song" to "Add to Setlist" as soon as the setlist
+has a song. The host's search text is kept.
 
 ## 6. Limits that come from YARG
 

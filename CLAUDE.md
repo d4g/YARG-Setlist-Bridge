@@ -54,7 +54,9 @@ it sends. It's also the reference client.
   `PlayingAShow` first.
 - The score screen reads `ShowSongs[ShowIndex]` again on every Continue, which is why editing
   `ShowSongs` in place during a show works.
-- `MusicLibraryMenu.SetNavigationScheme(true)` pops YARG's navigation stack, so it is not
-  called from outside; see `SetlistProbe.Edit.cs` for what that costs.
+- `MusicLibraryMenu.RefreshAndReselect()` is how an on-screen library is redrawn after an
+  edit: its `Refresh` rebuilds the help bar too, and defers that while a popup or dialog is
+  open. Don't call `SetNavigationScheme(true)` directly; it pops the navigation stack
+  whatever is on top. Confirmed in game: the green-button label updates at once.
 - YARG release builds use Mono (`YARG_Data\Managed\Assembly-CSharp.dll`, no `GameAssembly.dll`).
   If they switch to IL2CPP, this plugin needs BepInEx 6 and interop assemblies.
