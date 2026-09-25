@@ -8,7 +8,8 @@ It doesn't change any of YARG's files. It runs inside the game and works on the 
 memory, the same one YARG's own music library edits. It listens only on `127.0.0.1`, and a client needs a token that YARG writes into its
 own data folder. The wire format is in [PROTOCOL.md](PROTOCOL.md).
 
-**Status:** version 0.2 (protocol version 2): reading and editing the setlist.
+**Status:** version 0.2 (protocol version 2): reading and editing the setlist. Tested with
+YARG v0.15.0 and nightly b4076 on Windows.
 
 ## Install
 
@@ -17,9 +18,11 @@ own data folder. The wire format is in [PROTOCOL.md](PROTOCOL.md).
    Mono, so BepInEx 5 is the right version; BepInEx 6 isn't needed.
 2. Extract it into the YARG install folder, next to `YARG.exe`. For a launcher install, that's
    `…\YARG Installs\<id>\installation\`.
-3. Start YARG once so BepInEx creates its folders, then quit.
-4. Copy `YargSetlistBridge.dll` into `BepInEx\plugins\YargSetlistBridge\`.
-5. Start YARG. `BepInEx\LogOutput.log` should contain `Listening on 127.0.0.1:36110`, and
+3. Download `YargSetlistBridge-<version>.zip` from this repo's
+   [releases](https://github.com/d4g/YARG-Setlist-Bridge/releases) and extract it into the
+   same folder. It adds `BepInEx\plugins\YargSetlistBridge\YargSetlistBridge.dll`. There is one
+   file for every OS, because the plugin is .NET bytecode; only BepInEx differs per OS.
+4. Start YARG. `BepInEx\LogOutput.log` should contain `Listening on 127.0.0.1:36110`, and
    YARG's data folder should contain `setlist-bridge.json` (see [PROTOCOL.md](PROTOCOL.md) §1
    for where that folder is).
 
