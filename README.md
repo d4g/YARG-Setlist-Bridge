@@ -75,6 +75,10 @@ The DLL is written to `src\bin\Release\netstandard2.1\YargSetlistBridge.dll`. If
 YARG's and Unity's assemblies are referenced from the install folder. They're never copied
 into this repo or into the build output.
 
+## License
+
+In the public domain under [the Unlicense](LICENSE), the same as YASS.
+
 ## Not affiliated
 
 This is an unofficial mod. It isn't affiliated with or supported by YARC. Please don't report
