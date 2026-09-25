@@ -1,15 +1,14 @@
 # YARG Setlist Bridge
 
 A [BepInEx](https://github.com/BepInEx/BepInEx) plugin for [YARG](https://yarg.in). It
-sends YARG's current setlist to apps on the same computer, such as
-[YASS](https://github.com/DevPrice/YASS), so they can show what's coming up.
+lets apps on the same computer, such as [YASS](https://github.com/DevPrice/YASS), see YARG's
+current setlist and add, remove or reorder its songs.
 
-It doesn't change any of YARG's files. It runs inside the game and reads the setlist from
-memory. It listens only on `127.0.0.1`, and a client needs a token that YARG writes into its
+It doesn't change any of YARG's files. It runs inside the game and works on the setlist in
+memory, the same one YARG's own music library edits. It listens only on `127.0.0.1`, and a client needs a token that YARG writes into its
 own data folder. The wire format is in [PROTOCOL.md](PROTOCOL.md).
 
-**Status:** version 0.1, read-only. Controlling the setlist (adding, removing and reordering
-songs) is planned for protocol version 2.
+**Status:** version 0.2 (protocol version 2): reading and editing the setlist.
 
 ## Install
 
@@ -58,6 +57,7 @@ unsupported` and turns itself off. YARG keeps running normally.
 |---|---|---|
 | `Server.Port` | `36110` | `0` picks a free port. Clients read the port from the discovery file, so any value works. |
 | `Server.PollIntervalSeconds` | `0.25` | How often the plugin checks the setlist for changes. |
+| `Game.ToastOnAdd` | `true` | Show a toast in YARG when an app adds a song. Never shown during gameplay. |
 
 ## Build
 

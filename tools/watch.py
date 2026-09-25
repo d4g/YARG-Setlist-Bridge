@@ -53,8 +53,8 @@ def main():
         sys.exit(f"No bridge found: cannot read {discovery_path} ({err.strerror}).\n"
                  "Is YARG running with the plugin installed?")
 
-    if discovery.get("protocol") != 1:
-        sys.exit(f"Unsupported protocol {discovery.get('protocol')}; this client speaks 1.")
+    if discovery.get("protocol") not in (1, 2):
+        sys.exit(f"Unsupported protocol {discovery.get('protocol')}; this client speaks 1 and 2.")
 
     try:
         sock = socket.create_connection(("127.0.0.1", discovery["port"]), timeout=5)

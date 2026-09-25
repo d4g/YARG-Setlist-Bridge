@@ -1,7 +1,14 @@
-# Protocol, version 1
+# Protocol, version 2
 
-How a local app (YASS, or anything else) reads YARG's setlist from this plugin. Version 1
-is **read-only**: clients are told the setlist; they cannot change it yet.
+How a local app (YASS, or anything else) reads and edits YARG's setlist through this plugin.
+
+| Version | Plugin | Adds |
+|---|---|---|
+| 1 | 0.1.x | Reading the setlist (§4). |
+| 2 | 0.2.x | Editing it: add, remove, move, clear (§5). Everything in version 1 is unchanged. |
+
+A client written for version 1 works with a version 2 plugin if it accepts `protocol` 2 in
+the discovery file: the only new server message is `result`, which only answers commands.
 
 ## 1. Discovery
 
@@ -16,7 +23,7 @@ Linux:   ~/.config/unity3d/YARC/YARG/<channel>/setlist-bridge.json
 `<channel>` is `release` or `nightly`, or YARG's `-persistent-data-path` if one was given.
 
 ```json
-{"protocol":1,"port":36110,"token":"9f2c…","pid":12345,"plugin":"0.1.0","yarg":"v0.15"}
+{"protocol":2,"port":36110,"token":"9f2c…","pid":12345,"plugin":"0.2.0","yarg":"v0.15"}
 ```
 
 - The file is written atomically (temp file, then rename) and deleted when YARG quits.
@@ -42,7 +49,7 @@ If the token is wrong, the server replies `{"type":"error","code":"unauthorized"
 connection. If it's right, the server sends:
 
 ```json
-{"type":"hello","protocol":1,"plugin":"0.1.0"}
+{"type":"hello","protocol":2,"plugin":"0.2.0"}
 ```
 
 and then, as soon as it has one, the current `state`.
@@ -75,11 +82,59 @@ Sent once after the handshake, then every time anything in it changes.
 Each message is the complete state, never a partial update, so a client only needs to keep
 the latest one.
 
-## 5. Anything else
+## 5. Commands (version 2)
 
-In version 1, the server answers every message after `auth` with
-`{"type":"error","code":"unsupported"}`. Commands that change the setlist are reserved for
-version 2.
+After the handshake a client may send commands. Each gets exactly one `result`, matched by
+`id`, which the client chooses and the server echoes back:
+
+```json
+{"type":"add","id":"17","hash":"52302429C0ACBCD1612B144FCCB3565BB2C20109"}
+{"type":"result","id":"17","ok":true}
+{"type":"result","id":"18","ok":false,"code":"duplicate"}
+```
+
+| Command | Fields | Does |
+|---|---|---|
+| `add` | `hash`, optional `index` | Inserts the song at `index`, or at the end. |
+| `remove` | `hash` | Removes the song. |
+| `move` | `hash`, `index` | Moves the song so that it ends up at `index`. |
+| `clear` | | Removes every song that may be removed (see below). |
+
+- `hash` is 40 hex characters, in either case.
+- `index` is a position in `songs` as the latest `state` shows it, counted from 0.
+- Every command also takes an optional `version`: the `state` version the client was looking
+  at. If the setlist has changed since then, the command is refused with `conflict` rather
+  than applied to a list the client hasn't seen. Send it with anything that depends on
+  positions, such as `move`, or an `add` with an `index`.
+- Commands are applied in the order received, on YARG's main thread, within a frame or two.
+  After a successful one, the new `state` is published before the next command is looked at.
+  Its `result` may arrive before or after that `state`.
+
+**During a show** (`mode` is `playing`), the songs already played and the one playing are
+history. Nothing may be removed, moved or inserted at or before `index`; `clear` removes only
+the songs after it. **Before a show**, the whole list is editable, and adding to an empty
+setlist (`idle`) starts a new one.
+
+| `code` | Meaning |
+|---|---|
+| `invalid` | A field is missing or malformed, or `index` is out of range. |
+| `unknown_song` | YARG's library has no song with that hash. |
+| `duplicate` | The song is already in the setlist. YARG's setlists hold each song once. |
+| `not_found` | `remove` or `move` named a song that isn't in the setlist. |
+| `locked` | The song was already played or is playing. |
+| `full` | The setlist is at the plugin's limit of 200 songs. |
+| `conflict` | `version` was given and the setlist has changed since. Re-read and retry. |
+| `busy` | YARG can't take edits right now: a single song (not a show) is playing, players are picking difficulties for a show about to start, the game is loading, or too many commands are queued. Retry later. |
+| `failed` | Something went wrong inside YARG while applying it. Details are in the BepInEx log. |
+
+A message whose `type` isn't a command gets `{"type":"error","code":"unsupported"}`, and a
+line that isn't JSON gets `{"type":"error","code":"invalid"}`. Neither has an `id`.
+
+**Side effects in the game.** When a client adds a song, YARG shows a toast naming it,
+except during gameplay (setting `Game.ToastOnAdd`). If the music library is on screen, it
+redraws. The host's button hints may keep saying "play" instead of "start set" after a
+client adds the first song, until the library next refreshes. The buttons themselves work
+correctly, because YARG checks the setlist when they are pressed.
 
 ## 6. Limits that come from YARG
 

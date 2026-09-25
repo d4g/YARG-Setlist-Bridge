@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
@@ -10,19 +11,47 @@ using Newtonsoft.Json.Linq;
 namespace YargSetlistBridge
 {
     /// <summary>
+    /// A command from a client, waiting for the main thread. See PROTOCOL.md §5.
+    /// </summary>
+    internal sealed class BridgeCommand
+    {
+        internal BridgeCommand(object client, JObject message)
+        {
+            Client  = client;
+            Message = message;
+            Id      = message["id"]?.Type == JTokenType.String ? (string) message["id"] : null;
+            Type    = (string) message["type"];
+        }
+
+        /// <summary>Opaque to everything but <see cref="BridgeServer"/>; it says where the reply goes.</summary>
+        internal object  Client  { get; }
+        internal JObject Message { get; }
+        internal string  Id      { get; }
+        internal string  Type    { get; }
+    }
+
+    /// <summary>
     /// Newline-delimited JSON over TCP on 127.0.0.1. See PROTOCOL.md.
     ///
     /// Deliberately knows nothing about Unity or YARG, so it can be exercised outside the
-    /// game. The main thread only ever calls <see cref="Publish"/>, which stores the latest
-    /// message and returns; a sender thread does the socket writes. That way a stuck or
-    /// slow client can never stall a frame, and a burst of changes coalesces into the
-    /// newest state instead of queueing up stale ones.
+    /// game. The main thread never touches a socket:
+    ///
+    /// - State goes out through <see cref="Publish"/>, which stores the latest message and
+    ///   signals a sender thread. A burst of changes coalesces into the newest state instead
+    ///   of queueing up stale ones, and a slow client can never stall a frame.
+    /// - Commands come in on each client's reader thread and wait in a queue that the main
+    ///   thread drains (<see cref="TryTakeCommand"/>), because YARG's state may only be
+    ///   changed there. Replies go back through <see cref="Reply"/>, which the sender thread
+    ///   writes out, for the same reason state does.
     /// </summary>
     internal sealed class BridgeServer : IDisposable
     {
-        private const int MaxLineBytes     = 4096;
-        private const int AuthTimeoutMs    = 5000;
-        private const int WriteTimeoutMs   = 2000;
+        private const int MaxLineBytes   = 4096;
+        private const int AuthTimeoutMs  = 5000;
+        private const int WriteTimeoutMs = 2000;
+
+        /// <summary>Commands not yet taken by the main thread. Beyond this, clients are told to slow down.</summary>
+        private const int MaxQueuedCommands = 64;
 
         private readonly int            _port;
         private readonly string         _token;
@@ -32,8 +61,11 @@ namespace YargSetlistBridge
         private readonly object       _clientsLock = new object();
         private readonly List<Client> _clients     = new List<Client>();
 
-        private readonly AutoResetEvent          _publishSignal = new AutoResetEvent(false);
-        private readonly CancellationTokenSource _cts           = new CancellationTokenSource();
+        private readonly ConcurrentQueue<BridgeCommand>          _commands = new ConcurrentQueue<BridgeCommand>();
+        private readonly ConcurrentQueue<(Client, string)>        _replies  = new ConcurrentQueue<(Client, string)>();
+
+        private readonly AutoResetEvent          _sendSignal = new AutoResetEvent(false);
+        private readonly CancellationTokenSource _cts        = new CancellationTokenSource();
 
         private TcpListener     _listener;
         private Thread          _acceptThread;
@@ -70,8 +102,27 @@ namespace YargSetlistBridge
         public void Publish(string json)
         {
             _latest = json;
-            _publishSignal.Set();
+            _sendSignal.Set();
         }
+
+        /// <summary>The next command waiting for the main thread, if any.</summary>
+        public bool TryTakeCommand(out BridgeCommand command) => _commands.TryDequeue(out command);
+
+        /// <summary>
+        /// Sends a <c>result</c> for a command. Non-blocking; safe to call from the main
+        /// thread. A client that has gone away in the meantime simply misses it.
+        /// </summary>
+        public void Reply(BridgeCommand command, string code)
+        {
+            var json = code == null
+                ? "{\"type\":\"result\",\"id\":" + QuoteOrNull(command.Id) + ",\"ok\":true}"
+                : "{\"type\":\"result\",\"id\":" + QuoteOrNull(command.Id) + ",\"ok\":false,\"code\":" + SetlistSnapshot.Quote(code) + "}";
+
+            _replies.Enqueue(((Client) command.Client, json));
+            _sendSignal.Set();
+        }
+
+        private static string QuoteOrNull(string value) => value == null ? "null" : SetlistSnapshot.Quote(value);
 
         private void AcceptLoop()
         {
@@ -92,14 +143,14 @@ namespace YargSetlistBridge
                     continue;
                 }
 
-                // Each connection authenticates on its own short-lived thread so a client that
-                // connects and says nothing cannot hold up the next one.
-                var thread = new Thread(() => Handshake(tcp)) { IsBackground = true, Name = "SetlistBridge client" };
+                // Each connection runs on its own thread so a client that connects and says
+                // nothing cannot hold up the next one.
+                var thread = new Thread(() => Serve(tcp)) { IsBackground = true, Name = "SetlistBridge client" };
                 thread.Start();
             }
         }
 
-        private void Handshake(TcpClient tcp)
+        private void Serve(TcpClient tcp)
         {
             var client = new Client(tcp);
             try
@@ -129,14 +180,12 @@ namespace YargSetlistBridge
                     _clients.Add(client);
                 }
 
-                // Protocol v1 is read-only: nothing the client sends after auth is acted on.
-                // Keep reading anyway, so a closed connection is noticed and dropped promptly.
                 tcp.ReceiveTimeout = 0;
                 while (!_cts.IsCancellationRequested)
                 {
                     var message = ReadLine(client.Stream);
                     if (message == null) break;
-                    client.TryWrite("{\"type\":\"error\",\"code\":\"unsupported\"}");
+                    Receive(client, message);
                 }
             }
             catch (Exception)
@@ -145,6 +194,36 @@ namespace YargSetlistBridge
             }
 
             Remove(client);
+        }
+
+        /// <summary>Validates what can be validated off the main thread, and queues the rest.</summary>
+        private void Receive(Client client, string line)
+        {
+            JObject message;
+            try
+            {
+                message = JObject.Parse(line);
+            }
+            catch (Exception)
+            {
+                client.TryWrite("{\"type\":\"error\",\"code\":\"invalid\"}");
+                return;
+            }
+
+            var command = new BridgeCommand(client, message);
+            if (!SetlistCommands.IsKnown(command.Type))
+            {
+                client.TryWrite("{\"type\":\"error\",\"code\":\"unsupported\"}");
+                return;
+            }
+
+            if (_commands.Count >= MaxQueuedCommands)
+            {
+                Reply(command, SetlistCommands.Busy);
+                return;
+            }
+
+            _commands.Enqueue(command);
         }
 
         private bool IsValidAuth(string line)
@@ -162,13 +241,20 @@ namespace YargSetlistBridge
 
         private void SendLoop()
         {
-            var handles = new WaitHandle[] { _publishSignal, _cts.Token.WaitHandle };
+            var handles = new WaitHandle[] { _sendSignal, _cts.Token.WaitHandle };
             string sent = null;
 
             while (true)
             {
                 WaitHandle.WaitAny(handles);
                 if (_cts.IsCancellationRequested) return;
+
+                // Replies first: a client waiting on a result should not wait behind a state.
+                while (_replies.TryDequeue(out var reply))
+                {
+                    var (client, json) = reply;
+                    if (!client.TryWrite(json)) Remove(client);
+                }
 
                 var latest = _latest;
                 if (latest == null || ReferenceEquals(latest, sent)) continue;

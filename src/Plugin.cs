@@ -16,11 +16,15 @@ namespace YargSetlistBridge
     [BepInPlugin(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
     public sealed class Plugin : BaseUnityPlugin
     {
-        public const int    ProtocolVersion   = 1;
+        public const int    ProtocolVersion   = 2;
         public const string DiscoveryFileName = "setlist-bridge.json";
 
         private ConfigEntry<int>   _port;
         private ConfigEntry<float> _pollInterval;
+        private ConfigEntry<bool>  _toastAdds;
+
+        /// <summary>Commands applied per frame at most, so a flood cannot stretch one frame.</summary>
+        private const int CommandsPerFrame = 16;
 
         private BridgeServer    _server;
         private SetlistProbe    _probe;
@@ -40,6 +44,8 @@ namespace YargSetlistBridge
                 "TCP port on 127.0.0.1. 0 picks a free port; clients find it in " + DiscoveryFileName + " either way.");
             _pollInterval = Config.Bind("Server", "PollIntervalSeconds", 0.25f,
                 "How often the setlist is checked for changes.");
+            _toastAdds = Config.Bind("Game", "ToastOnAdd", true,
+                "Show a toast in YARG when a client (such as YASS) adds a song. Never shown during gameplay.");
 
             _token = NewToken();
 
@@ -59,10 +65,9 @@ namespace YargSetlistBridge
 
         private void Update()
         {
-            if (_disabled || Time.unscaledTime < _nextPoll) return;
-            _nextPoll = Time.unscaledTime + Math.Max(0.05f, _pollInterval.Value);
+            if (_disabled) return;
 
-            if (_discoveryPath == null && Time.unscaledTime >= _nextDiscoveryAttempt)
+            if (_discoveryPath == null && _server != null && Time.unscaledTime >= _nextDiscoveryAttempt)
             {
                 try
                 {
@@ -83,18 +88,66 @@ namespace YargSetlistBridge
                 // update can make constructing it throw, and only this catch handles that.
                 _probe ??= new SetlistProbe();
 
-                var snapshot = _probe.Capture();
-                if (snapshot.Equals(_last)) return;
+                ApplyCommands();
 
-                _last = snapshot;
-                _version++;
-                _server.Publish(snapshot.ToJson(_version));
+                if (Time.unscaledTime < _nextPoll) return;
+                _nextPoll = Time.unscaledTime + Math.Max(0.05f, _pollInterval.Value);
+                PublishIfChanged();
             }
             catch (Exception ex)
             {
                 // Almost always a YARG update having moved something SetlistProbe reads
                 // (MissingFieldException, MissingMethodException, TypeLoadException).
                 Disable($"reading YARG's setlist failed, so this YARG version is probably unsupported: {ex}");
+            }
+        }
+
+        private void PublishIfChanged()
+        {
+            var snapshot = _probe.Capture();
+            if (snapshot.Equals(_last)) return;
+
+            _last = snapshot;
+            _version++;
+            _server.Publish(snapshot.ToJson(_version));
+        }
+
+        /// <summary>
+        /// Applies queued commands, each against the state the one before it left.
+        ///
+        /// A successful edit is published before the next command is looked at, so the
+        /// version a client quotes (to say "move this, in the list as I saw it") is always
+        /// compared with the list the command will actually change.
+        /// </summary>
+        private void ApplyCommands()
+        {
+            for (int i = 0; i < CommandsPerFrame && _server.TryTakeCommand(out var command); i++)
+            {
+                var code = SetlistCommands.Parse(command.Message, out var args);
+
+                if (code == null && args.Version != null && args.Version.Value != _version)
+                {
+                    code = SetlistCommands.Conflict;
+                }
+
+                if (code == null)
+                {
+                    try
+                    {
+                        code = _probe.Apply(args, _toastAdds.Value);
+                    }
+                    catch (Exception ex) when (!(ex is MissingMemberException || ex is TypeLoadException))
+                    {
+                        // A YARG UI hiccup around one edit is that edit's problem, not a
+                        // reason to switch the whole plugin off. A missing member is.
+                        Logger.LogWarning($"'{args.Type}' failed: {ex}");
+                        code = SetlistCommands.Failed;
+                    }
+
+                    if (code == null) PublishIfChanged();
+                }
+
+                _server.Reply(command, code);
             }
         }
 

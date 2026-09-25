@@ -13,7 +13,7 @@
     <RootNamespace>YargSetlistBridge</RootNamespace>
     <LangVersion>9.0</LangVersion>
     <Nullable>disable</Nullable>
-    <Version>0.1.1</Version>
+    <Version>0.2.0</Version>
 
     <BepInExPluginGuid>dev.yalcybuild.setlistbridge</BepInExPluginGuid>
     <BepInExPluginName>YARG Setlist Bridge</BepInExPluginName>

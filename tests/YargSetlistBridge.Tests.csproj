@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Tests for the parts of the plugin that know nothing about Unity or YARG: the server,
+    the command rules and the snapshot. They are compiled in from src/ rather than
+    referenced, because the plugin assembly itself needs YARG's DLLs to load.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <IsPackable>false</IsPackable>
+    <!-- SetlistSnapshot.Songs is set by the plugin, which these tests do not compile. -->
+    <NoWarn>$(NoWarn);CS0649</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\src\BridgeServer.cs" Link="src\BridgeServer.cs" />
+    <Compile Include="..\src\SetlistCommands.cs" Link="src\SetlistCommands.cs" />
+    <Compile Include="..\src\SetlistSnapshot.cs" Link="src\SetlistSnapshot.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+</Project>

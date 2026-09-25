@@ -9,7 +9,7 @@ using YARG.Menu.MusicLibrary;
 namespace YargSetlistBridge
 {
     /// <summary>
-    /// The only file that touches YARG's internals. Everything here is a public member of
+    /// With SetlistProbe.Edit.cs, the only code that touches YARG's internals. Everything here is a public member of
     /// YARG's own assemblies, read without Harmony patches or reflection.
     ///
     /// YARG holds the setlist in two places, and which one is live depends on the phase:
@@ -33,7 +33,7 @@ namespace YargSetlistBridge
     /// so that when a YARG update renames something, the JIT failure surfaces as a
     /// catchable exception at the call site rather than breaking the plugin's own methods.
     /// </summary>
-    internal sealed class SetlistProbe
+    internal sealed partial class SetlistProbe
     {
         private const float SearchInterval = 1f;
 
