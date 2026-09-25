@@ -23,6 +23,22 @@ referencing the plugin, which can't load without YARG.
 testing needs nothing beyond Python) connects to a running bridge and prints what
 it sends. It's also the reference client.
 
+## Releasing
+
+Built locally, not in CI: the build needs YARG's own DLLs, which can't be committed, and
+downloading a YARG release on every CI run isn't worth it at this release rate.
+
+1. Bump `<Version>` in `src/YargSetlistBridge.csproj` and commit.
+2. Build from a clean `git archive HEAD src Directory.Build.props` copy against the
+   **stable** YARG release's `YARG_Data\Managed` (`-p:YargManagedDir=… -p:YargInstallDir=`),
+   so nothing uncommitted ends up in the binary.
+3. Run that exact DLL in both stable and nightly YARG: it must log `Listening on`, and
+   `tools/edit.py` add + clear must succeed.
+4. Zip as `BepInEx/plugins/YargSetlistBridge/{YargSetlistBridge.dll, LICENSE.txt}` and check
+   the entry names use `/` (PowerShell 5.1 can write `\`, which breaks Linux).
+5. Tag `vX.Y.Z`, push, and `gh release create` with the zip, the YARG builds tested and
+   SHA-256 of the zip and the DLL.
+
 ## Design rules
 
 - **Only `SetlistProbe.cs` and `SetlistProbe.Edit.cs` touch YARG types.** Every YARG-facing method there is
