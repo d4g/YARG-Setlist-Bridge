@@ -1,7 +1,7 @@
 # YARG Setlist Bridge
 
 A [BepInEx](https://github.com/BepInEx/BepInEx) plugin for [YARG](https://yarg.in). It
-lets apps on the same computer, such as [YASS](https://github.com/DevPrice/YASS), see YARG's
+lets apps on the same computer, such as [YASS](https://github.com/d4g/YASS) (a fork of [DevPrice/YASS](https://github.com/DevPrice/YASS)), see YARG's
 current setlist and add, remove or reorder its songs.
 
 It doesn't change any of YARG's files. It runs inside the game and works on the setlist in
