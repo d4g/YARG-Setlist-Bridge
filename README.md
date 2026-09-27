@@ -8,8 +8,10 @@ It doesn't change any of YARG's files. It runs inside the game and works on the 
 memory, the same one YARG's own music library edits. It listens only on `127.0.0.1`, and a client needs a token that YARG writes into its
 own data folder. The wire format is in [PROTOCOL.md](PROTOCOL.md).
 
-**Status:** version 0.2 (protocol version 2): reading and editing the setlist. Tested with
-YARG v0.15.0 and nightly b4076 on Windows.
+**Status:** version 0.3 (protocol version 3): reading and editing the setlist, and showing a
+client's QR code in YARG — beside the main menu, in the music library's header, and on the
+score and song-failed screens. Tested with nightly b4080 on Windows; reading and editing were
+also tested with YARG v0.15.0 in version 0.2.
 
 ## Install
 
