@@ -9,7 +9,10 @@ namespace YargSetlistBridge
         Hidden,
         /// <summary>Beside the main menu's buttons.</summary>
         MainMenu,
-        /// <summary>In the music library's header, between its title and the search bar.</summary>
+        /// <summary>
+        /// On the music library's album cover, in its top right quarter — or, when the cover
+        /// can't be found, in the header between the title and the search bar.
+        /// </summary>
         MusicLibrary,
         /// <summary>Top right: the score screen, and the menu after a failed song.</summary>
         Corner,
@@ -33,20 +36,23 @@ namespace YargSetlistBridge
         private const int QuietZone = 4;
 
         private readonly GameObject    _root;
+        private readonly Canvas        _canvas;
         private readonly RectTransform _frame;
         private readonly RawImage      _image;
         private Texture2D   _texture;
         private QrPlacement _placement = QrPlacement.Hidden;
+        /// <summary>The album cover in screen pixels, while the code sits on it.</summary>
+        private Rect? _cover;
 
         public QrOverlay()
         {
             _root = new GameObject("YargSetlistBridge.QrOverlay");
             Object.DontDestroyOnLoad(_root);
 
-            var canvas = _root.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            _canvas = _root.AddComponent<Canvas>();
+            _canvas.renderMode = RenderMode.ScreenSpaceOverlay;
             // Over YARG's own canvases, which stay well below this.
-            canvas.sortingOrder = 30000;
+            _canvas.sortingOrder = 30000;
 
             var scaler = _root.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -72,11 +78,26 @@ namespace YargSetlistBridge
             Refresh();
         }
 
-        public void Place(QrPlacement placement)
+        /// <param name="cover">
+        /// For <see cref="QrPlacement.MusicLibrary"/>: the album cover's rectangle in screen
+        /// pixels, when it was found. Null puts the code in the header instead.
+        /// </param>
+        public void Place(QrPlacement placement, Rect? cover = null)
         {
-            if (placement == _placement) return;
+            if (placement == _placement && Same(cover, _cover)) return;
             _placement = placement;
+            _cover = cover;
             Refresh();
+        }
+
+        /// <summary>Within a pixel counts as unmoved, so a still cover never re-lays the code.</summary>
+        private static bool Same(Rect? a, Rect? b)
+        {
+            if (a == null || b == null) return a == null && b == null;
+            var x = a.Value;
+            var y = b.Value;
+            return Mathf.Abs(x.xMin - y.xMin) < 1 && Mathf.Abs(x.yMin - y.yMin) < 1 &&
+                   Mathf.Abs(x.width - y.width) < 1 && Mathf.Abs(x.height - y.height) < 1;
         }
 
         public void Destroy()
@@ -95,8 +116,19 @@ namespace YargSetlistBridge
             switch (_placement)
             {
                 case QrPlacement.MainMenu:
-                    // Right of the menu's buttons, centred on the screen's height.
-                    Anchor(new Vector2(1, 0.5f), new Vector2(-220, 0), 320);
+                    // Right of the menu's buttons, a sixth of the screen's height below
+                    // its middle. An anchor rather than an offset, so it is a sixth on a
+                    // screen of any shape: the canvas matches width, and its height in
+                    // reference units changes with the aspect ratio.
+                    Anchor(new Vector2(1, 1f / 3), new Vector2(-220, 0), 320);
+                    break;
+
+                case QrPlacement.MusicLibrary when _cover != null:
+                    // The top right quarter of the cover, exactly.
+                    var cover = _cover.Value;
+                    var side = Mathf.Min(cover.width, cover.height) / 2;
+                    var centre = new Vector2(cover.xMax - side / 2, cover.yMax - side / 2);
+                    AtScreenPoint(centre, side);
                     break;
 
                 case QrPlacement.MusicLibrary:
@@ -109,6 +141,20 @@ namespace YargSetlistBridge
                     Anchor(new Vector2(1, 1), new Vector2(-150, -150), 220);
                     break;
             }
+        }
+
+        /// <summary>
+        /// Centres the code on a point in screen pixels, <paramref name="side"/> pixels wide.
+        /// The canvas's scale factor turns pixels into its own units.
+        /// </summary>
+        private void AtScreenPoint(Vector2 centre, float side)
+        {
+            var scale = _canvas.scaleFactor > 0 ? _canvas.scaleFactor : 1;
+            _frame.anchorMin = Vector2.zero;
+            _frame.anchorMax = Vector2.zero;
+            _frame.pivot = new Vector2(0.5f, 0.5f);
+            _frame.anchoredPosition = centre / scale;
+            _frame.sizeDelta = new Vector2(side, side) / scale;
         }
 
         /// <summary>Centres the code on <paramref name="offset"/> from <paramref name="anchor"/>.</summary>

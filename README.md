@@ -9,8 +9,8 @@ memory, the same one YARG's own music library edits. It listens only on `127.0.0
 own data folder. The wire format is in [PROTOCOL.md](PROTOCOL.md).
 
 **Status:** version 0.3 (protocol version 3): reading and editing the setlist, and showing a
-client's QR code in YARG — beside the main menu, in the music library's header, and on the
-score and song-failed screens. Tested with nightly b4080 on Windows; reading and editing were
+client's QR code in YARG — beside the main menu, on the music library's album cover, and on
+the score and song-failed screens. Tested with nightly b4080 on Windows; reading and editing were
 also tested with YARG v0.15.0 in version 0.2.
 
 ## Install

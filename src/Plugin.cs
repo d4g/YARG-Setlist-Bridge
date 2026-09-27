@@ -133,7 +133,9 @@ namespace YargSetlistBridge
             {
                 _screens ??= new ScreenProbe();
                 var wanted = _showQr.Value && _server.ClientCount > 0 ? _screens.Current() : QrPlacement.Hidden;
-                _qr.Place(wanted);
+                Rect? cover = null;
+                if (wanted == QrPlacement.MusicLibrary && _screens.TryAlbumCover(out var rect)) cover = rect;
+                _qr.Place(wanted, cover);
             }
             catch (Exception ex)
             {

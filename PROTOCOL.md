@@ -146,8 +146,8 @@ light quiet zone around it, so it needs no QR encoder of its own.
 
 It answers with a `result` like any command, `invalid` for a malformed grid. The code then
 shows while one of these screens is up, and nowhere else: the main menu (beside its buttons),
-the music library (in the header, between the title and the search bar), the score screen, and
-the menu after a failed song (both in the top right corner). It is taken away when the last
+the music library (on the top right quarter of the album cover), the score screen, and the menu
+after a failed song (both in the top right corner). It is hidden while YARG's settings are open. It is taken away when the last
 client disconnects, so a client that has quit never leaves an address on screen. The last `qr`
 received wins; a client should send its code again after every handshake, since YARG forgets
 it on restart.
