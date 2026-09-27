@@ -16,12 +16,13 @@ namespace YargSetlistBridge
     [BepInPlugin(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
     public sealed class Plugin : BaseUnityPlugin
     {
-        public const int    ProtocolVersion   = 2;
+        public const int    ProtocolVersion   = 3;
         public const string DiscoveryFileName = "setlist-bridge.json";
 
         private ConfigEntry<int>   _port;
         private ConfigEntry<float> _pollInterval;
         private ConfigEntry<bool>  _toastAdds;
+        private ConfigEntry<bool>  _showQr;
 
         /// <summary>Commands applied per frame at most, so a flood cannot stretch one frame.</summary>
         private const int CommandsPerFrame = 16;
@@ -32,6 +33,14 @@ namespace YargSetlistBridge
         private long            _version;
         private float           _nextPoll;
         private bool            _disabled;
+
+        /// <summary>How often the screen is checked for where the QR code goes.</summary>
+        private const float PlacementInterval = 0.1f;
+
+        private QrOverlay   _qr;
+        private ScreenProbe _screens;
+        private bool        _qrBroken;
+        private float       _nextPlacement;
 
         private string _token;
         private string _discoveryPath;
@@ -46,6 +55,9 @@ namespace YargSetlistBridge
                 "How often the setlist is checked for changes.");
             _toastAdds = Config.Bind("Game", "ToastOnAdd", true,
                 "Show a toast in YARG when a client (such as YASS) adds a song. Never shown during gameplay.");
+            _showQr = Config.Bind("Game", "ShowQrCode", true,
+                "Show the QR code a client (such as YASS) sends, on the main menu, in the music library, " +
+                "and on the score and song-failed screens. Turn off when streaming, if the code carries a key.");
 
             _token = NewToken();
 
@@ -82,6 +94,8 @@ namespace YargSetlistBridge
                 }
             }
 
+            PlaceQrCode();
+
             try
             {
                 // Created here rather than in Awake: its fields name YARG types, so a YARG
@@ -100,6 +114,44 @@ namespace YargSetlistBridge
                 // (MissingFieldException, MissingMethodException, TypeLoadException).
                 Disable($"reading YARG's setlist failed, so this YARG version is probably unsupported: {ex}");
             }
+        }
+
+        /// <summary>
+        /// Puts the QR code where the screen on show wants it, or hides it.
+        ///
+        /// Its own try, apart from the setlist's: a YARG update that renames one of the
+        /// screens <see cref="ScreenProbe"/> looks for switches the code off and leaves the
+        /// setlist running. The code also goes when no client is connected, so a YASS that
+        /// has quit never leaves an address on screen that nobody answers.
+        /// </summary>
+        private void PlaceQrCode()
+        {
+            if (_qr == null || _qrBroken || Time.unscaledTime < _nextPlacement) return;
+            _nextPlacement = Time.unscaledTime + PlacementInterval;
+
+            try
+            {
+                _screens ??= new ScreenProbe();
+                var wanted = _showQr.Value && _server.ClientCount > 0 ? _screens.Current() : QrPlacement.Hidden;
+                _qr.Place(wanted);
+            }
+            catch (Exception ex)
+            {
+                _qrBroken = true;
+                _qr.Place(QrPlacement.Hidden);
+                Logger.LogWarning($"Can't tell YARG's screens apart in this version, so the QR code is off: {ex}");
+            }
+        }
+
+        private void ApplyQrCommand(BridgeCommand command)
+        {
+            var code = QrCode.Parse(command.Message, out var modules);
+            if (code == null)
+            {
+                _qr ??= new QrOverlay();
+                _qr.SetCode(modules);
+            }
+            _server.Reply(command, code);
         }
 
         private void PublishIfChanged()
@@ -123,6 +175,12 @@ namespace YargSetlistBridge
         {
             for (int i = 0; i < CommandsPerFrame && _server.TryTakeCommand(out var command); i++)
             {
+                if (QrCode.IsCommand(command.Type))
+                {
+                    ApplyQrCommand(command);
+                    continue;
+                }
+
                 var code = SetlistCommands.Parse(command.Message, out var args);
 
                 if (code == null && args.Version != null && args.Version.Value != _version)
@@ -193,6 +251,9 @@ namespace YargSetlistBridge
         {
             _server?.Dispose();
             _server = null;
+
+            _qr?.Destroy();
+            _qr = null;
 
             // A stale file would point clients at a port nobody is listening on; the pid in it
             // lets them detect that anyway if YARG crashes before this runs.

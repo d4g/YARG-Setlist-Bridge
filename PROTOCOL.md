@@ -49,7 +49,7 @@ If the token is wrong, the server replies `{"type":"error","code":"unauthorized"
 connection. If it's right, the server sends:
 
 ```json
-{"type":"hello","protocol":2,"plugin":"0.2.0"}
+{"type":"hello","protocol":3,"plugin":"0.3.0"}
 ```
 
 and then, as soon as it has one, the current `state`.
@@ -126,6 +126,35 @@ setlist (`idle`) starts a new one.
 | `conflict` | `version` was given and the setlist has changed since. Re-read and retry. |
 | `busy` | YARG can't take edits right now: a single song (not a show) is playing, players are picking difficulties for a show about to start, the game is loading, or too many commands are queued. Retry later. |
 | `failed` | Something went wrong inside YARG while applying it. Details are in the BepInEx log. |
+
+### The QR code (version 3)
+
+A client can hand YARG a QR code to show, typically the address guests open on their phones:
+
+```json
+{"type":"qr","id":"19","size":37,"modules":"1111111010…"}
+{"type":"qr","id":"20","modules":null}
+```
+
+| Field | Meaning |
+|---|---|
+| `size` | Modules per side: a QR version from 1 to 10, so 21, 25, … 57. |
+| `modules` | The finished code, row by row from the top, `size × size` characters: `1` dark, `0` light, no quiet zone. `null` takes the code away. |
+
+The client does the encoding. The plugin draws exactly this grid, one texel per module with a
+light quiet zone around it, so it needs no QR encoder of its own.
+
+It answers with a `result` like any command, `invalid` for a malformed grid. The code then
+shows while one of these screens is up, and nowhere else: the main menu (beside its buttons),
+the music library (in the header, between the title and the search bar), the score screen, and
+the menu after a failed song (both in the top right corner). It is taken away when the last
+client disconnects, so a client that has quit never leaves an address on screen. The last `qr`
+received wins; a client should send its code again after every handshake, since YARG forgets
+it on restart.
+
+The host can switch it off in YARG's BepInEx config (`Game.ShowQrCode`), for example while
+streaming, if the code carries a key. If a YARG update renames one of those screens, only the
+code switches off; the setlist keeps working.
 
 A message whose `type` isn't a command gets `{"type":"error","code":"unsupported"}`, and a
 line that isn't JSON gets `{"type":"error","code":"invalid"}`. Neither has an `id`.

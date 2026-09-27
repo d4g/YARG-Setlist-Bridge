@@ -41,9 +41,12 @@ downloading a YARG release on every CI run isn't worth it at this release rate.
 
 ## Design rules
 
-- **Only `SetlistProbe.cs` and `SetlistProbe.Edit.cs` touch YARG types.** Every YARG-facing method there is
+- **Only `SetlistProbe.cs`, `SetlistProbe.Edit.cs` and `ScreenProbe.cs` touch YARG types.** Every YARG-facing method there is
   `NoInlining`, so when a YARG update renames something, the JIT error is thrown at a call
   site in `Plugin.Update`. That catch disables the plugin instead of breaking YARG.
+- **`ScreenProbe` has its own catch.** It only decides where the QR code goes, so when a
+  YARG update renames a screen it switches the code off (`Plugin.PlaceQrCode`) and leaves
+  the setlist running. `QrOverlay` draws on a canvas of its own and never touches YARG's UI.
 - **Poll, don't patch.** There are no Harmony patches: it reads and edits public members only
   (`GlobalVariables.State`, `MusicLibraryMenu.ShowPlaylist`, `SongContainer`, `PathHelper`).
   Add a patch only when that can't do the job, and record the reason here.

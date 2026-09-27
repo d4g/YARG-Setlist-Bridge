@@ -108,6 +108,18 @@ namespace YargSetlistBridge
         /// <summary>The next command waiting for the main thread, if any.</summary>
         public bool TryTakeCommand(out BridgeCommand command) => _commands.TryDequeue(out command);
 
+        /// <summary>Clients past the handshake and still connected.</summary>
+        public int ClientCount
+        {
+            get
+            {
+                lock (_clientsLock)
+                {
+                    return _clients.Count;
+                }
+            }
+        }
+
         /// <summary>
         /// Sends a <c>result</c> for a command. Non-blocking; safe to call from the main
         /// thread. A client that has gone away in the meantime simply misses it.
@@ -211,7 +223,7 @@ namespace YargSetlistBridge
             }
 
             var command = new BridgeCommand(client, message);
-            if (!SetlistCommands.IsKnown(command.Type))
+            if (!SetlistCommands.IsKnown(command.Type) && !QrCode.IsCommand(command.Type))
             {
                 client.TryWrite("{\"type\":\"error\",\"code\":\"unsupported\"}");
                 return;

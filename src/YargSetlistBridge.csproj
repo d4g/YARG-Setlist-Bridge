@@ -13,7 +13,7 @@
     <RootNamespace>YargSetlistBridge</RootNamespace>
     <LangVersion>9.0</LangVersion>
     <Nullable>disable</Nullable>
-    <Version>0.2.0</Version>
+    <Version>0.3.0</Version>
 
     <BepInExPluginGuid>dev.yalcybuild.setlistbridge</BepInExPluginGuid>
     <BepInExPluginName>YARG Setlist Bridge</BepInExPluginName>
@@ -44,6 +44,9 @@
     <Reference Include="Newtonsoft.Json" HintPath="$(YargManagedDir)\Newtonsoft.Json.dll" Private="false" />
     <Reference Include="UnityEngine" HintPath="$(YargManagedDir)\UnityEngine.dll" Private="false" />
     <Reference Include="UnityEngine.CoreModule" HintPath="$(YargManagedDir)\UnityEngine.CoreModule.dll" Private="false" />
+    <!-- The QR code's overlay: Canvas lives in UIModule, RawImage and CanvasScaler in UI. -->
+    <Reference Include="UnityEngine.UIModule" HintPath="$(YargManagedDir)\UnityEngine.UIModule.dll" Private="false" />
+    <Reference Include="UnityEngine.UI" HintPath="$(YargManagedDir)\UnityEngine.UI.dll" Private="false" />
   </ItemGroup>
 
   <Target Name="DeployToYarg" AfterTargets="Build" Condition="'$(YargInstallDir)' != ''">

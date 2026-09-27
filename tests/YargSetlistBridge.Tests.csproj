@@ -17,6 +17,7 @@
   <ItemGroup>
     <Compile Include="..\src\BridgeServer.cs" Link="src\BridgeServer.cs" />
     <Compile Include="..\src\SetlistCommands.cs" Link="src\SetlistCommands.cs" />
+    <Compile Include="..\src\QrCode.cs" Link="src\QrCode.cs" />
     <Compile Include="..\src\SetlistSnapshot.cs" Link="src\SetlistSnapshot.cs" />
   </ItemGroup>
 
