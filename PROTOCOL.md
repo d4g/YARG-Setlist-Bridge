@@ -35,7 +35,7 @@ Linux:   ~/.config/unity3d/YARC/YARG/<channel>/setlist-bridge.json
 ## 2. Transport
 
 TCP on `127.0.0.1:<port>`. Every message in both directions is one JSON object on one line,
-UTF-8, terminated by `\n`. Lines longer than 4096 bytes from a client close the connection.
+UTF-8, terminated by `\n`. Lines longer than 8192 bytes from a client close the connection (4096 before protocol 4).
 
 ## 3. Handshake
 
@@ -49,7 +49,7 @@ If the token is wrong, the server replies `{"type":"error","code":"unauthorized"
 connection. If it's right, the server sends:
 
 ```json
-{"type":"hello","protocol":3,"plugin":"0.3.0"}
+{"type":"hello","protocol":4,"plugin":"0.4.0"}
 ```
 
 and then, as soon as it has one, the current `state`.
@@ -147,7 +147,8 @@ light quiet zone around it, so it needs no QR encoder of its own.
 It answers with a `result` like any command, `invalid` for a malformed grid. The code then
 shows while one of these screens is up, and nowhere else: the main menu (beside its buttons),
 the music library (on the top right quarter of the album cover), the score screen, and the menu
-after a failed song (both in the top right corner). It is hidden while YARG's settings are open. It is taken away when the last
+after a failed song (both in the top right corner, a tenth of the screen's height down). It is
+hidden while YARG's settings are open. It is taken away when the last
 client disconnects, so a client that has quit never leaves an address on screen. The last `qr`
 received wins; a client should send its code again after every handshake, since YARG forgets
 it on restart.
@@ -155,6 +156,27 @@ it on restart.
 The host can switch it off in YARG's BepInEx config (`Game.ShowQrCode`), for example while
 streaming, if the code carries a key. If a YARG update renames one of those screens, only the
 code switches off; the setlist keeps working.
+
+### The caption under the QR code (version 4)
+
+On the score screen and the menu after a failed song, the plugin can show a caption under the
+code: who added the next song, and the song.
+
+```json
+{"type":"caption","id":"21","player":{"name":"Anna","color":"#ff7ad9","image":"iVBORw0KGgo…"},"song":"Queen – Bohemian Rhapsody"}
+{"type":"caption","id":"22","player":null,"song":null}
+```
+
+| Field | Meaning |
+|---|---|
+| `player` | Who added the next song, or `null`. `name`: up to 64 characters. `color`: `#rrggbb`, used for the name. `image`: optional, a base64 PNG of at most 2400 bytes, drawn beside the name. |
+| `song` | The next song as one line, up to 200 characters, or `null`. |
+
+With a player, the first line reads "NEXT PLAYER:", the picture and the name; the song goes
+below it. With only one of the two, only that line shows; with neither, no caption. The picture
+exists because YARG can't draw colour emoji from text: the client sends the emoji as a PNG.
+Names and titles are shown as plain text, so markup in them isn't interpreted. Like `qr`, the
+last one received wins, and a client should send it again after every handshake.
 
 A message whose `type` isn't a command gets `{"type":"error","code":"unsupported"}`, and a
 line that isn't JSON gets `{"type":"error","code":"invalid"}`. Neither has an `id`.

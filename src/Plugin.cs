@@ -16,7 +16,7 @@ namespace YargSetlistBridge
     [BepInPlugin(MyPluginInfo.PLUGIN_GUID, MyPluginInfo.PLUGIN_NAME, MyPluginInfo.PLUGIN_VERSION)]
     public sealed class Plugin : BaseUnityPlugin
     {
-        public const int    ProtocolVersion   = 3;
+        public const int    ProtocolVersion   = 4;
         public const string DiscoveryFileName = "setlist-bridge.json";
 
         private ConfigEntry<int>   _port;
@@ -145,6 +145,17 @@ namespace YargSetlistBridge
             }
         }
 
+        private void ApplyCaptionCommand(BridgeCommand command)
+        {
+            var code = QrCaption.Parse(command.Message, out var caption);
+            if (code == null)
+            {
+                _qr ??= new QrOverlay();
+                _qr.SetCaption(caption);
+            }
+            _server.Reply(command, code);
+        }
+
         private void ApplyQrCommand(BridgeCommand command)
         {
             var code = QrCode.Parse(command.Message, out var modules);
@@ -180,6 +191,12 @@ namespace YargSetlistBridge
                 if (QrCode.IsCommand(command.Type))
                 {
                     ApplyQrCommand(command);
+                    continue;
+                }
+
+                if (QrCaption.IsCommand(command.Type))
+                {
+                    ApplyCaptionCommand(command);
                     continue;
                 }
 

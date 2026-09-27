@@ -62,7 +62,7 @@ namespace YargSetlistBridge.Tests
         [Fact]
         public void TheLargestGridFitsInOneProtocolLine()
         {
-            // BridgeServer drops a client whose line passes 4096 bytes.
+            // A protocol-3 plugin drops a client whose line passes 4096 bytes.
             var line = $"{{\"type\":\"qr\",\"id\":\"99999\",\"size\":{QrCode.MaxSize},\"modules\":\"{Grid(QrCode.MaxSize)}\"}}";
             Assert.True(line.Length < 4096);
         }

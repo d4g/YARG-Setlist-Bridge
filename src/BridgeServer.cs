@@ -46,7 +46,9 @@ namespace YargSetlistBridge
     /// </summary>
     internal sealed class BridgeServer : IDisposable
     {
-        private const int MaxLineBytes   = 4096;
+        // 8 KiB since protocol 4: a caption carries a picture, and a song title in a
+        // script of three bytes a character could push the largest past 4 KiB.
+        internal const int MaxLineBytes = 8192;
         private const int AuthTimeoutMs  = 5000;
         private const int WriteTimeoutMs = 2000;
 
@@ -223,7 +225,8 @@ namespace YargSetlistBridge
             }
 
             var command = new BridgeCommand(client, message);
-            if (!SetlistCommands.IsKnown(command.Type) && !QrCode.IsCommand(command.Type))
+            if (!SetlistCommands.IsKnown(command.Type) && !QrCode.IsCommand(command.Type) &&
+                !QrCaption.IsCommand(command.Type))
             {
                 client.TryWrite("{\"type\":\"error\",\"code\":\"unsupported\"}");
                 return;

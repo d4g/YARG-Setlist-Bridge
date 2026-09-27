@@ -47,6 +47,8 @@ downloading a YARG release on every CI run isn't worth it at this release rate.
 - **`ScreenProbe` has its own catch.** It only decides where the QR code goes, so when a
   YARG update renames a screen it switches the code off (`Plugin.PlaceQrCode`) and leaves
   the setlist running. `QrOverlay` draws on a canvas of its own and never touches YARG's UI.
+  Its caption borrows the font of a TextMeshPro text YARG is showing, and takes the emoji as
+  a PNG from the client, because YARG has no font with colour emoji.
 - **Poll, don't patch.** There are no Harmony patches: it reads and edits public members only
   (`GlobalVariables.State`, `MusicLibraryMenu.ShowPlaylist`, `SongContainer`, `PathHelper`).
   Add a patch only when that can't do the job, and record the reason here.

@@ -13,7 +13,7 @@
     <RootNamespace>YargSetlistBridge</RootNamespace>
     <LangVersion>9.0</LangVersion>
     <Nullable>disable</Nullable>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
 
     <BepInExPluginGuid>dev.yalcybuild.setlistbridge</BepInExPluginGuid>
     <BepInExPluginName>YARG Setlist Bridge</BepInExPluginName>
@@ -47,6 +47,10 @@
     <!-- The QR code's overlay: Canvas lives in UIModule, RawImage and CanvasScaler in UI. -->
     <Reference Include="UnityEngine.UIModule" HintPath="$(YargManagedDir)\UnityEngine.UIModule.dll" Private="false" />
     <Reference Include="UnityEngine.UI" HintPath="$(YargManagedDir)\UnityEngine.UI.dll" Private="false" />
+    <!-- The caption under it: TextMeshPro for the text, ImageConversion for the emoji PNG. -->
+    <Reference Include="Unity.TextMeshPro" HintPath="$(YargManagedDir)\Unity.TextMeshPro.dll" Private="false" />
+    <Reference Include="UnityEngine.ImageConversionModule" HintPath="$(YargManagedDir)\UnityEngine.ImageConversionModule.dll" Private="false" />
+    <Reference Include="UnityEngine.TextRenderingModule" HintPath="$(YargManagedDir)\UnityEngine.TextRenderingModule.dll" Private="false" />
   </ItemGroup>
 
   <Target Name="DeployToYarg" AfterTargets="Build" Condition="'$(YargInstallDir)' != ''">
